@@ -216,25 +216,23 @@ class MainActivity : Activity() {
                 }
             }
 
-            override fun onFinish() {
-                remaining = 0L
-                running = false
+            
+override fun onFinish() {
+    remaining = 0L
+    running = false
+    display.text = "00:00"
 
-                display.text = "00:00"
+    startAlarm()
 
-                if (isWork) {
-                    startAlarm()
-                } else {
-                    stopAlarm()
-                }
+    isWork = !isWork
+    remaining = duration(isWork)
 
-                isWork = !isWork
-                remaining = duration(isWork)
+    handler.postDelayed({
+        stopAlarm()
+        startTimer()
+    }, 2000)
+}
 
-                handler.postDelayed({
-                    startTimer()
-                }, 1200)
-            }
         }.start()
     }
 
