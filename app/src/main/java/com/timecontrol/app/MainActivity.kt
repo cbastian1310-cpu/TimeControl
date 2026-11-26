@@ -163,7 +163,7 @@ class MainActivity : Activity() {
         }
 
         val startButton = Button(this).apply {
-            text = "INICIAR"
+            settext = "INICIAR"
 
             setOnClickListener {
                 if (!running) {
@@ -180,7 +180,7 @@ class MainActivity : Activity() {
         }
 
         val pauseButton = Button(this).apply {
-            text = "PAUSAR"
+            settext = "PAUSAR"
 
             setOnClickListener {
                 if (running) {
@@ -200,29 +200,32 @@ class MainActivity : Activity() {
         }
 
         val resetButton = Button(this).apply {
-            text = "REINICIAR"
+        
+val resetButton = Button(this).apply {
+    setText("REINICIAR")
 
-            setOnClickListener {
+    setOnClickListener {
 
-                timer?.cancel()
-                timer = null
+        timer?.cancel()
+        timer = null
 
-                handler.removeCallbacks(
-                    transitionRunnable
-                )
+        handler.removeCallbacks(
+            transitionRunnable
+        )
 
-                running = false
+        running = false
 
-                stopAlarm()
+        stopAlarm()
 
-                isWork = true
-                lastWarningSecond = -1L
-                remaining = 0L
+        isWork = true
+        lastWarningSecond = -1L
+        remaining = 0L
 
-                display.text = "00:00"
-                stage.text = "PERÍODO"
-            }
-        }
+        display.setText("00:00")
+        stage.setText("PERÍODO")
+    }
+}
+
 
         fun addButton(button: Button) {
 
