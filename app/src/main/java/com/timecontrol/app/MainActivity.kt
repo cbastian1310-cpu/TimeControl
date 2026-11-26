@@ -6,9 +6,9 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
+import android.os.Build
 import android.os.Vibrator
 import android.os.VibrationEffect
-import android.os.Build
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.graphics.Color
@@ -16,6 +16,7 @@ import android.graphics.Typeface
 import android.view.Gravity
 import android.widget.*
 import android.text.InputType
+import java.util.Locale
 
 class MainActivity : Activity() {
 
@@ -27,6 +28,7 @@ class MainActivity : Activity() {
     private var timer: CountDownTimer? = null
     private var remaining = 0L
     private var running = false
+    private var transitioning = false
     private var isWork = true
     private var lastWarningSecond = -1L
 
@@ -49,12 +51,14 @@ class MainActivity : Activity() {
     }
 
     private val transitionRunnable = Runnable {
+        transitioning = false
         stopAlarm()
         startTimer()
     }
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).toInt()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,110 +78,147 @@ class MainActivity : Activity() {
             color: Int,
             bold: Boolean = false
         ): TextView {
-            return TextView(this).apply {
-                setText(value)
-                textSize = size
-                setTextColor(color)
-                gravity = Gravity.CENTER
+            val label = TextView(this)
 
-                if (bold) {
-                    setTypeface(null, Typeface.BOLD)
-                }
+            label.text = value
+            label.textSize = size
+            label.setTextColor(color)
+            label.gravity = Gravity.CENTER
+            label.setPadding(dp(4), dp(8), dp(4), dp(8))
 
-                setPadding(dp(4), dp(8), dp(4), dp(8))
-                root.addView(this)
+            if (bold) {
+                label.setTypeface(null, Typeface.BOLD)
             }
-        }
 
-        addText("TIME CONTROL", 26f, Color.WHITE, true)
-
-        stage = addText(
-            "PERÍODO", 18f,
-            Color.rgb(96, 165, 250), true
-        )
-
-        display = addText("00:00", 68f, Color.WHITE, true)
-
-        addText(
-            "Duración del período (minutos)",
-            15f, Color.LTGRAY
-        )
-
-        workInput = EditText(this).apply {
-            setText("20")
-            inputType = InputType.TYPE_CLASS_NUMBER
-            textSize = 18f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.rgb(55, 65, 81))
-            root.addView(this, LinearLayout.LayoutParams(-1, dp(52)))
-        }
-
-        addText(
-            "Duración del descanso (minutos)",
-            15f, Color.LTGRAY
-        )
-
-        restInput = EditText(this).apply {
-            setText("5")
-            inputType = InputType.TYPE_CLASS_NUMBER
-            textSize = 18f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.rgb(55, 65, 81))
-            root.addView(this, LinearLayout.LayoutParams(-1, dp(52)))
-        }
-
-        val startButton = Button(this).apply {
-            setText("INICIAR")
-            setOnClickListener {
-                if (!running) {
-                    if (remaining <= 0L) {
-                        isWork = true
-                        remaining = duration(true)
-                    }
-                    stopAlarm()
-                    startTimer()
-                }
-            }
-        }
-
-        val pauseButton = Button(this).apply {
-            setText("PAUSAR")
-            setOnClickListener {
-                if (running) {
-                    timer?.cancel()
-                    timer = null
-                    handler.removeCallbacks(transitionRunnable)
-                    stopAlarm()
-                    running = false
-                }
-            }
-        }
-
-        val resetButton = Button(this).apply {
-            setText("REINICIAR")
-            setOnClickListener {
-                timer?.cancel()
-                timer = null
-                handler.removeCallbacks(transitionRunnable)
-                running = false
-                stopAlarm()
-                isWork = true
-                lastWarningSecond = -1L
-                remaining = 0L
-                display.setText("00:00")
-                stage.setText("PERÍODO")
-            }
+            root.addView(label)
+            return label
         }
 
         fun addButton(button: Button) {
             root.addView(
                 button,
-                LinearLayout.LayoutParams(-1, dp(54)).apply {
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(54)
+                ).apply {
                     topMargin = dp(8)
                 }
             )
+        }
+
+        addText("TIME CONTROL", 26f, Color.WHITE, true)
+
+        stage = addText(
+            "PERÍODO",
+            18f,
+            Color.rgb(96, 165, 250),
+            true
+        )
+
+        display = addText(
+            "00:00",
+            68f,
+            Color.WHITE,
+            true
+        )
+
+        addText(
+            "Duración del período (minutos)",
+            15f,
+            Color.LTGRAY
+        )
+
+        workInput = EditText(this).apply {
+            this.setText("20")
+            inputType = InputType.TYPE_CLASS_NUMBER
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(55, 65, 81))
+        }
+
+        root.addView(
+            workInput,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(52)
+            )
+        )
+
+        addText(
+            "Duración del descanso (minutos)",
+            15f,
+            Color.LTGRAY
+        )
+
+        restInput = EditText(this).apply {
+            this.setText("5")
+            inputType = InputType.TYPE_CLASS_NUMBER
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(55, 65, 81))
+        }
+
+        root.addView(
+            restInput,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(52)
+            )
+        )
+
+        val startButton = Button(this)
+        startButton.text = "INICIAR"
+
+        startButton.setOnClickListener {
+            if (!running && !transitioning) {
+                if (remaining <= 0L) {
+                    isWork = true
+                    remaining = duration(true)
+                }
+
+                stopAlarm()
+                startTimer()
+            }
+        }
+
+        val pauseButton = Button(this)
+        pauseButton.text = "PAUSAR"
+
+        pauseButton.setOnClickListener {
+            if (running || transitioning) {
+                timer?.cancel()
+                timer = null
+
+                handler.removeCallbacks(transitionRunnable)
+
+                stopAlarm()
+
+                running = false
+                transitioning = false
+            }
+        }
+
+        val resetButton = Button(this)
+        resetButton.text = "REINICIAR"
+
+        resetButton.setOnClickListener {
+            timer?.cancel()
+            timer = null
+
+            handler.removeCallbacks(transitionRunnable)
+
+            stopAlarm()
+
+            running = false
+            transitioning = false
+            isWork = true
+            lastWarningSecond = -1L
+            remaining = 0L
+
+            display.text = "00:00"
+            stage.text = "PERÍODO"
         }
 
         addButton(startButton)
@@ -186,15 +227,22 @@ class MainActivity : Activity() {
 
         addText(
             "AVISO PREVIO: 10 SEGUNDOS",
-            13f, Color.LTGRAY
+            13f,
+            Color.LTGRAY
         )
 
-        setContentView(root)
+        val scroll = ScrollView(this)
+        scroll.addView(root)
+
+        setContentView(scroll)
     }
 
     private fun duration(work: Boolean): Long {
         val input = if (work) workInput else restInput
-        val minutes = input.text.toString().toLongOrNull() ?: 1L
+
+        val minutes = input.text.toString()
+            .toLongOrNull() ?: 1L
+
         return minutes.coerceIn(1L, 1440L) * 60_000L
     }
 
@@ -204,9 +252,12 @@ class MainActivity : Activity() {
         }
 
         running = true
+        transitioning = false
         lastWarningSecond = -1L
 
-        stage.setText(if (isWork) "PERÍODO" else "DESCANSO")
+        stage.text = if (isWork) "PERÍODO" else "DESCANSO"
+
+        timer?.cancel()
 
         timer = object : CountDownTimer(remaining, 250) {
 
@@ -219,12 +270,11 @@ class MainActivity : Activity() {
                 val minutesPart = totalSeconds / 60L
                 val secondsPart = totalSeconds % 60L
 
-                display.setText(
-                    String.format(
-                        "%02d:%02d",
-                        minutesPart,
-                        secondsPart
-                    )
+                display.text = String.format(
+                    Locale.getDefault(),
+                    "%02d:%02d",
+                    minutesPart,
+                    secondsPart
                 )
 
                 if (
@@ -236,12 +286,14 @@ class MainActivity : Activity() {
                     try {
                         if (tone == null) {
                             tone = ToneGenerator(
-                                AudioManager.STREAM_ALARM, 100
+                                AudioManager.STREAM_ALARM,
+                                100
                             )
                         }
 
                         tone?.startTone(
-                            ToneGenerator.TONE_PROP_BEEP2, 300
+                            ToneGenerator.TONE_PROP_BEEP2,
+                            300
                         )
                     } catch (_: Exception) {
                     }
@@ -252,17 +304,27 @@ class MainActivity : Activity() {
                 remaining = 0L
                 running = false
                 timer = null
-                display.setText("00:00")
+
+                display.text = "00:00"
 
                 isWork = !isWork
-                stage.setText(if (isWork) "PERÍODO" else "DESCANSO")
+
+                stage.text = if (isWork) {
+                    "PERÍODO"
+                } else {
+                    "DESCANSO"
+                }
 
                 remaining = duration(isWork)
 
+                transitioning = true
                 startAlarm()
 
                 handler.removeCallbacks(transitionRunnable)
-                handler.postDelayed(transitionRunnable, 2000)
+                handler.postDelayed(
+                    transitionRunnable,
+                    2000
+                )
             }
         }.start()
     }
@@ -270,17 +332,26 @@ class MainActivity : Activity() {
     private fun startAlarm() {
         try {
             tone?.release()
-            tone = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+
+            tone = ToneGenerator(
+                AudioManager.STREAM_ALARM,
+                100
+            )
 
             handler.removeCallbacks(alarmRunnable)
             handler.post(alarmRunnable)
 
             vibrator?.let {
-                val pattern = longArrayOf(0, 400, 200, 400)
+                val pattern = longArrayOf(
+                    0, 400, 200, 400
+                )
 
                 if (Build.VERSION.SDK_INT >= 26) {
                     it.vibrate(
-                        VibrationEffect.createWaveform(pattern, 0)
+                        VibrationEffect.createWaveform(
+                            pattern,
+                            0
+                        )
                     )
                 } else {
                     @Suppress("DEPRECATION")
@@ -309,6 +380,7 @@ class MainActivity : Activity() {
         timer = null
 
         handler.removeCallbacks(transitionRunnable)
+
         stopAlarm()
 
         super.onDestroy()
